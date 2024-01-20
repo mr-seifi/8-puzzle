@@ -1,5 +1,6 @@
-from game import Game, NumberOfWrongTiles, NumberOfWrongTilesDividesTwo, NumberOfWrongTilesTimesTwo
+from game import Game, NumberOfWrongTiles, NumberOfWrongTilesDividesTwo, NumberOfWrongTilesTimesTwo, EuclideanDistance, ManhattanDistance
 from gui import PuzzleGame
+from copy import deepcopy
 
 
 def solve_infinity_puzzles():
@@ -11,14 +12,17 @@ def solve_infinity_puzzles_all_huristics():
     huristics = [
         NumberOfWrongTiles(),
         NumberOfWrongTilesDividesTwo(),
-        NumberOfWrongTilesTimesTwo()
+        NumberOfWrongTilesTimesTwo(),
+        EuclideanDistance(),
+        ManhattanDistance(),
     ]
 
     while True:
         puzzle_temp = Game(verbose=False)
         board = puzzle_temp.get_board()
         for h in huristics:
-            puzzle = Game(board=board)
+            print('BOARD:', board)
+            puzzle = Game(board=deepcopy(board))
             solution = puzzle.solve(huristic=h)
         
         print('--------------------------------------')
@@ -39,8 +43,8 @@ def animate(board=None, huristic=None):
 
 def main():
 
-    # solve_infinity_puzzles_all_huristics()
-    animate()
+    solve_infinity_puzzles_all_huristics()
+    # animate(huristic=NumberOfWrongTiles())
 
 
 if __name__ == '__main__':

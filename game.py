@@ -2,21 +2,27 @@ from random import sample
 from copy import deepcopy
 from priority_queue import PriorityQueue
 import sys
+from math import sqrt
+import numpy as np
 
-# Define the game board size
+
 BOARD_SIZE = 3
-
-
 class Game:
     def __init__(self, board=None, verbose=True) -> None:
-        self._all_numbers = list(range(BOARD_SIZE ** 2))
-        self._choices = sample(self._all_numbers, k=BOARD_SIZE**2)
-        self.board = self.create_board(self._choices) if not board else board
+        self._stop = BOARD_SIZE*BOARD_SIZE
+        self._all_numbers = np.arange(start=0, stop=self._stop, step=1)
+        if board is None:
+            self._choices = np.random.choice(self._all_numbers, self._stop, replace=False)
+            self.board = self.create_board(self._choices)
+        else:
+            self._choices = board.reshape(self._stop)
+            self.board = board
+
         while not self.is_solvable(self.board):
             if verbose:
                 print('not solvable', self.board)
-            self._choices = sample(self._all_numbers, k=BOARD_SIZE**2)
-            self.board = self.create_board(self._choices)
+            self._choices = np.random.choice(self._all_numbers, self._stop, replace=False)
+            self.board = self.create_board(self._choices) if not board else board
 
         if verbose:
             print("board created", self.board)
@@ -24,26 +30,16 @@ class Game:
         self.goal = self.create_board(self._all_numbers)
 
     def create_board(self, choices):
-        board = []
-        _temp = []
-        for it, s in enumerate(choices):
-            _temp.append(s)
-            if (it + 1) % BOARD_SIZE == 0:
-                board.append(deepcopy(_temp))
-                _temp.clear()
-        return board
+        return choices.reshape(BOARD_SIZE, BOARD_SIZE)
     
     def get_board(self):
         return deepcopy(self.board)
     
     def get_inv_count(self, arr):
         if BOARD_SIZE == 3:
-            inv_count = 0   
-            empty_value = 0
-            for i in range(0, 9):
-                for j in range(i + 1, 9):
-                    if arr[j] != empty_value and arr[i] != empty_value and arr[i] > arr[j]:
-                        inv_count += 1
+            inv_count = 0
+            for i in range(0, self._stop):
+                inv_count += (arr[i+1:][arr[i+1:] > 0] < arr[i]).sum()
             return inv_count
         elif BOARD_SIZE == 4:
             arr1=[]
@@ -58,27 +54,16 @@ class Game:
                         inv_count+=1
             return inv_count
     
- 
-     
-    # This function returns true
-    # if given 8 puzzle is solvable.
     def is_solvable(self, puzzle) :
         if BOARD_SIZE == 3:
-            # Count inversions in given 8 puzzle
-            inv_count = self.get_inv_count([j for sub in puzzle for j in sub])
-        
-            # return true if inversion count is even.
+            inv_count = self.get_inv_count(self._choices)
             return (inv_count % 2 == 0)
         elif BOARD_SIZE == 4:
-                # Count inversions in given puzzle
             invCount = self.get_inv_count(puzzle)
-        
-            # If grid is odd, return true if inversion
-            # count is even.
             if (BOARD_SIZE & 1):
                 return ~(invCount & 1)
         
-            else:    # grid is even
+            else:
                 pos = self.find_x_position(puzzle)
                 if (pos & 1):
                     return ~(invCount & 1)
@@ -86,22 +71,13 @@ class Game:
                     return invCount & 1
     
  
-    # find Position of blank from bottom
-    def find_x_position(self, puzzle):
-        # start from bottom-right corner of matrix
-        for i in range(BOARD_SIZE - 1,-1,-1):
-            for j in range(BOARD_SIZE - 1,-1,-1):
-                if (puzzle[i][j] == 0):
-                    return BOARD_SIZE - i
+    def find_x_position(self, _):
+        return BOARD_SIZE - (np.where(self._choices == 0)[0][0] // BOARD_SIZE)
                 
-        
-
 
     def get_empty_position(self, board):
-        for row in range(BOARD_SIZE):
-            for col in range(BOARD_SIZE):
-                if board[row][col] == 0:
-                    return row, col
+        index = np.where(board == 0)
+        return index[0][0], index[1][0]
 
     def get_valid_moves(self, row, col):
         valid_moves = []
@@ -140,9 +116,9 @@ class Game:
     def solve(self, huristic=None):
         priorityq = PriorityQueue()
         start_state = [self.board]
-        goal_test = lambda x: x[-1] == self.goal
+        goal_test = lambda x: (x[-1] == self.goal).all()
 
-        if not huristic:
+        if not huristic:    
             huristic = NumberOfWrongTiles()
         print(str(huristic))
 
@@ -169,6 +145,9 @@ class Game:
 
 
 class Huristic:
+    def __init__(self) -> None:
+        self.goal = np.arange(start=0, stop=BOARD_SIZE*BOARD_SIZE, step=1).reshape(BOARD_SIZE, BOARD_SIZE)
+
     def calculate(self):
         ...
     
@@ -178,11 +157,7 @@ class Huristic:
 
 class NumberOfWrongTiles(Huristic):
     def calculate(self, board):
-        hu = 0
-        for i in range(BOARD_SIZE):
-            for j in range(BOARD_SIZE):
-                if i * BOARD_SIZE + j != board[i][j]:
-                    hu += 1
+        hu = (board != self.goal).sum()
         return hu
     
     def __str__(self) -> str:
@@ -190,33 +165,42 @@ class NumberOfWrongTiles(Huristic):
 
 class NumberOfWrongTilesDividesTwo(Huristic):
     def calculate(self, board):
-        hu = 0
-        for i in range(BOARD_SIZE):
-            for j in range(BOARD_SIZE):
-                if i * BOARD_SIZE + j != board[i][j]:
-                    hu += 1
+        hu = (board != self.goal).sum()
         return hu // 2
     
     def __str__(self) -> str:
         return "----- NumberOfWrongTilesDividesTwo -----"
-    
-class NumberOfWrongTilesDividesThree(Huristic):
-    def calculate(self, board):
-        hu = 0
-        for i in range(BOARD_SIZE):
-            for j in range(BOARD_SIZE):
-                if i * BOARD_SIZE + j != board[i][j]:
-                    hu += 1
-        return hu // 3
+
 
 class NumberOfWrongTilesTimesTwo(Huristic):
     def calculate(self, board):
-        hu = 0
-        for i in range(BOARD_SIZE):
-            for j in range(BOARD_SIZE):
-                if i * BOARD_SIZE + j != board[i][j]:
-                    hu += 1
+        hu = (board != self.goal).sum()
         return hu * 2
     
     def __str__(self) -> str:
         return "----- NumberOfWrongTilesTimesTwo -----"
+    
+class EuclideanDistance(Huristic):
+    def calculate(self, board):
+        hu = 0
+        for k in range(0, BOARD_SIZE*BOARD_SIZE):
+            current = np.where(board == k)
+            goal = np.where(self.goal == k)
+            hu += np.sqrt(np.power(current[0][0] - goal[0][0], 2) + np.power(current[1][0] - goal[1][0], 2))
+        return hu
+    
+    def __str__(self) -> str:
+        return "----- EuclideanDistance -----"
+    
+
+class ManhattanDistance(Huristic):
+    def calculate(self, board):
+        hu = 0
+        for k in range(0, BOARD_SIZE*BOARD_SIZE):
+            current = np.where(board == k)
+            goal = np.where(self.goal == k)
+            hu += np.abs(current[0][0] - goal[0][0]) + np.abs(current[1][0] - goal[1][0])
+        return hu
+    
+    def __str__(self) -> str:
+        return "----- ManhattanDistance -----"

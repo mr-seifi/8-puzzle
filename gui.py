@@ -9,7 +9,6 @@ class PuzzleGame:
         self.tiles = []
         self.state_history = initial_state
 
-        # Create a grid of buttons representing the tiles
         for row in range(BOARD_SIZE):
             row_tiles = []
             for col in range(BOARD_SIZE):
@@ -28,9 +27,6 @@ class PuzzleGame:
         self.update_tiles(next_state)
         self.root.update()
         time.sleep(0.5)
-
-        # Call the solver algorithm with the current state
-        # and update the state_history with the next state
         self.state_history.append(next_state)
 
     def update_tiles(self, state):
